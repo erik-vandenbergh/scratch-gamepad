@@ -32,13 +32,18 @@
 
   ext.gamepadSupport = (!!navigator.getGamepads ||
                         !!navigator.gamepads);
-  ext.gamepad = null;
+  ext.gamepads = [];
 
-  ext.stickDirection = {left: 90, right: 90};
+  ext.stickDirection = [
+		{left: 90, right: 90},
+		{left: 90, right: 90},
+		{left: 90, right: 90},
+		{left: 90, right: 90}
+	];
 
   ext.tick = function() {
-    ext.gamepad = (navigator.getGamepads &&
-                   navigator.getGamepads()[0]);
+    ext.gamepads = (navigator.getGamepads &&
+                   navigator.getGamepads());
     window.requestAnimationFrame(ext.tick);
   };
   if (ext.gamepadSupport) window.requestAnimationFrame(ext.tick);
@@ -51,14 +56,14 @@
       msg: "Please use a recent version of Google Chrome",
     };
 
-    if (!ext.gamepad) return {
+    if (ext.gamepads.length == 0) return {
       status: 1,
       msg: "Please plug in a gamepad and press any button",
     };
 
     return {
       status: 2,
-      msg: "Good to go!",
+      msg: "Ready : " + ext.gamepads.length + " gamepad(s) detected.",
     };
   };
 
@@ -66,17 +71,25 @@
     return true;
   }
 
-  ext.getButton = function(name) {
+  ext.getButton = function(name, gamepad) {
+		var gamepadIdx = +gamepad - 1;
+		if (gamepadIdx >= ext.gamepads.length)
+			return false;
+		
     var index = buttonNames[name];
-    var button = ext.gamepad.buttons[index];
+    var button = ext.gamepads[gamepadIdx].buttons[index];
     return button.pressed;
   };
 
-  ext.getStick = function(what, stick) {
+  ext.getStick = function(what, stick, gamepad) {
+		var gamepadIdx = +gamepad - 1;		
+		if (gamepadIdx >= ext.gamepads.length)
+			return 0;
+		
     var x, y;
     switch (stick) {
-      case "left":  x = ext.gamepad.axes[0]; y = -ext.gamepad.axes[1]; break;
-      case "right": x = ext.gamepad.axes[2]; y = -ext.gamepad.axes[3]; break;
+      case "left":  x = ext.gamepads[gamepadIdx].axes[0]; y = -ext.gamepads[gamepadIdx].axes[1]; break;
+      case "right": x = ext.gamepads[gamepadIdx].axes[2]; y = -ext.gamepads[gamepadIdx].axes[3]; break;
     }
     if (-DEADZONE < x && x < DEADZONE) x = 0;
     if (-DEADZONE < y && y < DEADZONE) y = 0;
@@ -85,10 +98,10 @@
       case "direction":
         if (x === 0 && y === 0) {
           // report the stick's previous direction
-          return ext.stickDirection[stick];
+          return ext.stickDirection[gamepadIdx][stick];
         }
         var value = 180 * Math.atan2(x, y) / Math.PI;
-        ext.stickDirection[stick] = value;
+        ext.stickDirection[gamepadIdx][stick] = value;
         return value;
       case "force":
         return Math.sqrt(x*x + y*y) * 100;
@@ -98,13 +111,14 @@
   var descriptor = {
     blocks: [
       ["b", "Gamepad Extension installed?", "installed"],
-      ["b", "button %m.button pressed?", "getButton", "X"],
-      ["r", "%m.axisValue of %m.stick stick", "getStick", "direction", "left"],
+      ["b", "button %m.button pressed on gamepad %m.gamepad?", "getButton", "X", "1"],
+      ["r", "%m.axisValue of %m.stick stick on gamepad %m.gamepad", "getStick", "direction", "left", "1"],
     ],
     menus: {
       button: buttonMenu,
       stick: ["left", "right"],
       axisValue: ["direction", "force"],
+			gamepad: ["1", "2", "3", "4"]
     },
   };
 
